@@ -192,4 +192,8 @@ Media.onStatus = function(id, msgType, value) {
 
 };
 
+Media.assetCheck =  function (key, version, filesize, success, fail) {
+    return exec(success, fail, "Media", "assetCheck", [key, version, filesize]);
+}
+
 module.exports = Media;

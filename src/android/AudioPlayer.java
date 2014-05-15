@@ -18,6 +18,8 @@
 */
 package org.apache.cordova.media;
 
+import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
@@ -26,9 +28,13 @@ import android.media.MediaPlayer.OnPreparedListener;
 import android.media.MediaRecorder;
 import android.os.Environment;
 import android.util.Log;
+import com.android.vending.expansion.zipfile.APKExpansionSupport;
+import com.android.vending.expansion.zipfile.ZipResourceFile;
+import com.google.android.vending.expansion.downloader.Helpers;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 /**
@@ -530,7 +536,14 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
         else {
             if (file.startsWith("/android_asset/")) {
                 String f = file.substring(15);
-                android.content.res.AssetFileDescriptor fd = this.handler.cordova.getActivity().getAssets().openFd(f);
+                android.content.res.AssetFileDescriptor fd;
+                try {
+                    fd = this.handler.cordova.getActivity().getAssets().openFd(f);
+                } catch (FileNotFoundException e) {
+                    Log.d(LOG_TAG, "Trying to get file from extention File: " + f.substring(4));
+                    Context ctx = handler.getContext();
+                    fd = this.getExternalAssets(ctx, f.substring(4));
+                }
                 this.player.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
             }
             else {
@@ -552,4 +565,49 @@ public class AudioPlayer implements OnCompletionListener, OnPreparedListener, On
                 this.duration = getDurationInSeconds();
             }
     }
+
+    private AssetFileDescriptor getExternalAssets(Context ctx, String filename) throws IOException {
+        // Get APKExpensionFile
+        ZipResourceFile expansionFile = getZipResourceFile(ctx);
+        if (expansionFile == null) return null;
+
+        // Find file in ExpansionFile
+        //String fileName = Helpers.getExpansionAPKFileName(ctx, true, AudioHandler.mainVersion);
+       // fileName = fileName.substring(0, fileName.lastIndexOf("."));
+        AssetFileDescriptor file = null;
+        ZipResourceFile.ZipEntryRO[] allEntries = expansionFile.getAllEntries();
+        Log.d(LOG_TAG, "External file: " + filename);
+
+        for(ZipResourceFile.ZipEntryRO entry : allEntries){
+            if(entry.mFileName.equals(filename)) {
+
+                Log.d(LOG_TAG, "Entry found: " + entry.mFileName);
+                try {
+                    file = entry.getAssetFileDescriptor();
+                } catch (Exception e) {
+                    Log.e(LOG_TAG, e.getMessage(), e);
+                }
+                break;
+            }
+        }
+
+        if(file != null)
+            Log.d(LOG_TAG, file.toString());
+        else
+            Log.d(LOG_TAG, "File is NULL!");
+
+        return file;
+    }
+
+    public static ZipResourceFile getZipResourceFile(Context ctx) throws IOException {
+        ZipResourceFile expansionFile = APKExpansionSupport.getAPKExpansionZipFile(ctx, AudioHandler.mainVersion, AudioHandler.patchVersion);
+
+        if (null == expansionFile) {
+            Log.e(LOG_TAG, "APKExpansionFile not found.");
+            return null;
+        }
+        return expansionFile;
+    }
+
+
 }

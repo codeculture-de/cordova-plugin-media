@@ -18,6 +18,13 @@
 */
 package org.apache.cordova.media;
 
+import android.content.Intent;
+import android.content.res.AssetFileDescriptor;
+import android.util.Log;
+import com.android.vending.expansion.zipfile.APKExpansionSupport;
+import com.android.vending.expansion.zipfile.ZipResourceFile;
+import com.google.android.vending.expansion.downloader.FakeR;
+import com.google.android.vending.expansion.downloader.Helpers;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CordovaResourceApi;
@@ -26,6 +33,7 @@ import android.content.Context;
 import android.media.AudioManager;
 import android.net.Uri;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 import org.apache.cordova.PluginResult;
@@ -50,6 +58,11 @@ public class AudioHandler extends CordovaPlugin {
     HashMap<String, AudioPlayer> players;	// Audio player object
     ArrayList<AudioPlayer> pausedForPhone;     // Audio players that were paused when phone call came in
 
+    static int mainVersion = 1;
+    static int patchVersion = 1;
+    static long fileSize = 1;
+    public static final int REQUEST_CODE = 234256412;
+
     /**
      * Constructor.
      */
@@ -69,6 +82,12 @@ public class AudioHandler extends CordovaPlugin {
         CordovaResourceApi resourceApi = webView.getResourceApi();
         PluginResult.Status status = PluginResult.Status.OK;
         String result = "";
+
+        //Init FakeR Helper is its still not Initialized
+        Context ctx = cordova.getActivity().getApplicationContext();
+        if(Helpers.fakeR == null) {
+            Helpers.fakeR = new FakeR(ctx);
+        }
 
         if (action.equals("startRecordingAudio")) {
             String target = args.getString(1);
@@ -130,6 +149,10 @@ public class AudioHandler extends CordovaPlugin {
             callbackContext.sendPluginResult(new PluginResult(status, b));
             return true;
         }
+        else if (action.equals("assetCheck")) {
+            callbackContext.sendPluginResult(executeAssetCheck(args));
+            return true;
+        }
         else { // Unrecognized action.
             return false;
         }
@@ -139,7 +162,42 @@ public class AudioHandler extends CordovaPlugin {
         return true;
     }
 
-    /**
+    private PluginResult executeAssetCheck(JSONArray data) {
+        try {
+            MediaDownloaderService.BASE64_PUBLIC_KEY = data.getString(0);
+            AudioHandler.mainVersion = data.getInt(1);
+            AudioHandler.fileSize = data.getLong(2);
+
+            xAPKS = new XAPKFile[] {
+                    new XAPKFile(true, AudioHandler.mainVersion, AudioHandler.fileSize)
+            };
+
+            ZipResourceFile zipResourceFile = AudioPlayer.getZipResourceFile(getContext());
+
+            if(zipResourceFile == null) {
+                Intent intent = new Intent("org.apache.cordova.media.AudioHandler.VIEW");
+                intent.addCategory(Intent.CATEGORY_DEFAULT);
+
+                Log.d(TAG, "Starting intend " + intent);
+                Log.d(TAG, "Key is: " + MediaDownloaderService.BASE64_PUBLIC_KEY);
+                Log.d(TAG, "Trying to get : main." + AudioHandler.mainVersion + cordova.getActivity().getApplicationContext().getPackageName() + ".obb" );
+
+                this.cordova.startActivityForResult((CordovaPlugin) this, intent, REQUEST_CODE);
+            }
+            return new PluginResult(PluginResult.Status.OK);
+        } catch (Exception e) {
+            return new PluginResult(PluginResult.Status.ERROR, e.getMessage());
+        }
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent intent) {
+        if (requestCode == REQUEST_CODE) {
+            Log.d(TAG, String.valueOf(resultCode));
+        }
+    }
+
+     /**
      * Stop all audio players and recorders.
      */
     public void onDestroy() {
@@ -373,4 +431,36 @@ public class AudioHandler extends CordovaPlugin {
             System.out.println("AudioHandler.setVolume() Error: Unknown Audio Player " + id);
         }
     }
+
+    public Context getContext() {
+        return cordova.getActivity().getApplicationContext();
+    }
+
+    /**
+     * This is a little helper class that demonstrates simple testing of an
+     * Expansion APK file delivered by Market. You may not wish to hard-code
+     * things such as file lengths into your executable... and you may wish to
+     * turn this code off during application development.
+     */
+    public static class XAPKFile {
+        public final boolean mIsMain;
+        public final int mFileVersion;
+        public final long mFileSize;
+
+        XAPKFile(boolean isMain, int fileVersion, long fileSize) {
+            mIsMain = isMain;
+            mFileVersion = fileVersion;
+            mFileSize = fileSize;
+        }
+    }
+
+    /**
+     * Here is where you place the data that the validator will use to determine
+     * if the file was delivered correctly. This is encoded in the source code
+     * so the application can easily determine whether the file has been
+     * properly delivered without having to talk to the server. If the
+     * application is using LVL for licensing, it may make sense to eliminate
+     * these checks and to just rely on the server.
+     */
+    public static XAPKFile[] xAPKS = null;
 }

@@ -13,6 +13,9 @@ Thumbs.db
 *.user
 
 
+.idea
+*.iml
+
 
 
 
