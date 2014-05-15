@@ -149,8 +149,12 @@ public class AudioHandler extends CordovaPlugin {
             callbackContext.sendPluginResult(new PluginResult(status, b));
             return true;
         }
-        else if (action.equals("assetCheck")) {
+        else if (action.equals("assetCheckDownloader")) {
             callbackContext.sendPluginResult(executeAssetCheck(args));
+            return true;
+        }
+        else if (action.equals("assetCheckRequired")) {
+            callbackContext.sendPluginResult(executeAssetCheckRequired(args));
             return true;
         }
         else { // Unrecognized action.
@@ -172,19 +176,32 @@ public class AudioHandler extends CordovaPlugin {
                     new XAPKFile(true, AudioHandler.mainVersion, AudioHandler.fileSize)
             };
 
-            ZipResourceFile zipResourceFile = AudioPlayer.getZipResourceFile(getContext());
+            Intent intent = new Intent("org.apache.cordova.media.AudioHandler.VIEW");
+            intent.addCategory(Intent.CATEGORY_DEFAULT);
+
+            Log.d(TAG, "Starting intend " + intent);
+            Log.d(TAG, "Key is: " + MediaDownloaderService.BASE64_PUBLIC_KEY);
+            Log.d(TAG, "Trying to get : main." + AudioHandler.mainVersion + cordova.getActivity().getApplicationContext().getPackageName() + ".obb" );
+
+            this.cordova.startActivityForResult((CordovaPlugin) this, intent, REQUEST_CODE);
+
+            return new PluginResult(PluginResult.Status.OK);
+        } catch (Exception e) {
+            return new PluginResult(PluginResult.Status.ERROR, e.getMessage());
+        }
+    }
+
+    private PluginResult executeAssetCheckRequired(JSONArray data) {
+
+        ZipResourceFile zipResourceFile = null;
+        try {
+            zipResourceFile = AudioPlayer.getZipResourceFile(getContext());
 
             if(zipResourceFile == null) {
-                Intent intent = new Intent("org.apache.cordova.media.AudioHandler.VIEW");
-                intent.addCategory(Intent.CATEGORY_DEFAULT);
-
-                Log.d(TAG, "Starting intend " + intent);
-                Log.d(TAG, "Key is: " + MediaDownloaderService.BASE64_PUBLIC_KEY);
-                Log.d(TAG, "Trying to get : main." + AudioHandler.mainVersion + cordova.getActivity().getApplicationContext().getPackageName() + ".obb" );
-
-                this.cordova.startActivityForResult((CordovaPlugin) this, intent, REQUEST_CODE);
+                return new PluginResult(PluginResult.Status.OK, true);
             }
-            return new PluginResult(PluginResult.Status.OK);
+
+            return new PluginResult(PluginResult.Status.OK, false);
         } catch (Exception e) {
             return new PluginResult(PluginResult.Status.ERROR, e.getMessage());
         }
