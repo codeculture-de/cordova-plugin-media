@@ -196,8 +196,8 @@ Media.assetCheckStart =  function (key, version, filesize, success, fail) {
     return exec(success, fail, "Media", "assetCheckDownloader", [key, version, filesize]);
 }
 
-Media.assetCheckRequired =  function (success, fail) {
-    return exec(success, fail, "Media", "assetCheckRequired", []);
+Media.assetCheckRequired =  function (version, success, fail) {
+    return exec(success, fail, "Media", "assetCheckRequired", [version]);
 }
 
 module.exports = Media;

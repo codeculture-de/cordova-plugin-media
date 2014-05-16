@@ -169,7 +169,7 @@ public class AudioHandler extends CordovaPlugin {
     private PluginResult executeAssetCheck(JSONArray data) {
         try {
             MediaDownloaderService.BASE64_PUBLIC_KEY = data.getString(0);
-            AudioHandler.mainVersion = data.getInt(1);
+            AudioHandler.mainVersion = AudioHandler.patchVersion = data.getInt(1);
             AudioHandler.fileSize = data.getLong(2);
 
             xAPKS = new XAPKFile[] {
@@ -193,8 +193,10 @@ public class AudioHandler extends CordovaPlugin {
 
     private PluginResult executeAssetCheckRequired(JSONArray data) {
 
+
         ZipResourceFile zipResourceFile = null;
         try {
+            AudioHandler.mainVersion = AudioHandler.patchVersion = data.getInt(0);
             zipResourceFile = AudioPlayer.getZipResourceFile(getContext());
 
             if(zipResourceFile == null) {
